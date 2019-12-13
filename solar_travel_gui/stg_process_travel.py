@@ -9,8 +9,11 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 from pyqtgraph.Qt import QtGui, QtCore
 import sys
 
-import stg_loc_hourly as stg_loc
-import stg_function as stg_func
+# import stg_loc_hourly as stg_loc
+# import stg_function as stg_func
+
+import solar_travel_gui.stg_loc_hourly as stg_loc
+import solar_travel_gui.stg_function as stg_func
 
 class ProcessTravel(QtGui.QWidget):
     def __init__(self):

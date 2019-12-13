@@ -19,7 +19,7 @@ setup(
     license='GPL3',
     author='CHEN Kian Wee',
     author_email='chenkianwee@gmail.com',
-    url='chickenrice.comx',
+    url='https://github.com/chenkianwee/solar_travel_gui',
     classifiers="test",
 
     # details needed by setup
@@ -27,5 +27,5 @@ setup(
     python_requires=">=3.6",
     packages=find_packages(),
     package_data={},
-    entry_points={'gui_scripts': ['chickenrice = chickenrice.__main__:main']},
+    entry_points={'gui_scripts': ['solar_travel_gui = solar_travel_gui.__main__:main']},
 )

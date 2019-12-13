@@ -17,10 +17,12 @@ requirements:
     - setuptools
     - pyqtgraph
     - PyOpenGL
+    - py4design
   run:
     - python
     - pyqtgraph
     - PyOpenGL
+    - py4design
 test:
   imports:
     - solar_travel_gui
