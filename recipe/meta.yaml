@@ -1,0 +1,34 @@
+package:
+  name: solar_travel_gui
+  version: "0.01"
+  
+source:
+  path: ../
+  
+build:
+  number: 0
+  entry_points:
+    - solar_travel_gui = solar_travel_gui.__main__:main
+  osx_is_app: True
+
+requirements:
+  host:
+    - python
+    - setuptools
+    - pyqtgraph
+    - PyOpenGL
+  run:
+    - python
+    - pyqtgraph
+    - PyOpenGL
+test:
+  imports:
+    - solar_travel_gui
+app:
+ entry: solar_travel_gui
+ summary: This is an app to visualise solar and travel data
+ type: desk
+
+about:
+  home: https://github.com/chenkianwee/xxxx
+  license: GPL3
