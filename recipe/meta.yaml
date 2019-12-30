@@ -1,12 +1,13 @@
 package:
   name: solar_travel_gui
-  version: "0.01"
+  version: "0.03"
   
 source:
   path: ../
   
 build:
   number: 0
+  #noarch: python
   entry_points:
     - solar_travel_gui = solar_travel_gui.__main__:main
   osx_is_app: True
@@ -17,12 +18,16 @@ requirements:
     - setuptools
     - pyqtgraph
     - PyOpenGL
+    - pyproj
     - py4design
+    - gdal
   run:
     - python
     - pyqtgraph
     - PyOpenGL
+    - pyproj
     - py4design
+    - gdal
 test:
   imports:
     - solar_travel_gui

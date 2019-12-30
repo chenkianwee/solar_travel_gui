@@ -19,9 +19,9 @@ class ProcessParking(QtGui.QWidget):
         
         arg_list = self.retrieve_arg()      
         # arg_list = ['F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\p4d_process_travel.py', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\campus_as_a_lab\\data\\solar_travel_data\\parking', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\campus_as_a_lab\\data\\solar_travel_data\\travel', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\campus_as_a_lab\\data\\solar_travel_data\\ground_solar']
+        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\golfcart\\model3d\\solar_travel_data\\parking', 
+        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\golfcart\\model3d\\solar_travel_data\\travel', 
+        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\golfcart\\model3d\\solar_travel_data\\ground_solar']
         
         self.arg_list = arg_list
         

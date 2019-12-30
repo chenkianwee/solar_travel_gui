@@ -9,16 +9,16 @@ import pyqtgraph.opengl as gl
 from pyqtgraph.Qt import QtGui, QtCore
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-#import stg_function as stg_func
+# import stg_function as stg_func
 import solar_travel_gui.stg_function as stg_func
 
 class AnimationVisualiser(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
         arg_list = self.retrieve_arg()      
-#        arg_list = ['F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\p4d_animation.py', '2019-9-2-10:0:0', '2019-9-30-18:0:0', '133.0', 
-#                    '914.0', 'terrains', 'trees', 'roads', 'buildings', 'irradiations', 'travels', 
-#                    'F:/kianwee_work/princeton/2019_06_to_2019_12/campus_as_a_lab/data/solar_travel_data', '529580.7566756287,4465755.661849028,42.16880273814235']
+        # arg_list =['F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\stg_animation.py', '2019-9-2-10:0:0', '2019-9-30-18:0:0', 
+        #             '133.0', '914.0', 'contextual_map', 'map', 'terrains', 'trees', 'roads', 'buildings', 'irradiations', 'travels', 'parkings', 
+        #             'F:/kianwee_work/princeton/2019_06_to_2019_12/golfcart/model3d/solar_travel_data', '529580.7566756287,4465755.661849028,42.16880273814235']
         self.arg_list = arg_list
         self.setupGUI()
         
@@ -102,16 +102,32 @@ class AnimationVisualiser(QtGui.QWidget):
         self.travel_dir = os.path.join(data_dir, "travel")
         self.parking_dir = os.path.join(data_dir, "parking")
         self.mesh_dir = os.path.join(data_dir, "context3d")
+        
+        #========================================================================
+        #load the satelite map
+        #========================================================================
+        if "contextual_map" in arg_list:
+            map_path = os.path.join(self.mesh_dir, "context_map.tif")
+            context_map = stg_func.img2glimage(map_path, "additive")
+            self.context_map = context_map
+            
+        if "map" in arg_list:
+            map_path2 = os.path.join(self.mesh_dir, "map.tif")
+            mapx = stg_func.img2glimage(map_path2, "translucent")
+            stg_func.move_graphic_items([mapx], [0,0,20])
+            self.map = mapx
+        
         #========================================================================
         #load the 3d terrain model
         #======================================================================== 
-        terrain_mesh_json = os.path.join(self.mesh_dir, "terrains.json")
-        terrains_mesh_list = stg_func.read_meshes_json(terrain_mesh_json, shader = "shaded",  gloptions = "additive")
-        
-        for t in terrains_mesh_list:
-            t.setColor([1.0,1.0,1.0,1.0])
+        if "terrains" in arg_list:
+            terrain_mesh_json = os.path.join(self.mesh_dir, "terrains.json")
+            terrains_mesh_list = stg_func.read_meshes_json(terrain_mesh_json, shader = "shaded",  gloptions = "additive")
             
-        self.terrain_meshes = terrains_mesh_list
+            for t in terrains_mesh_list:
+                t.setColor([1.0,1.0,1.0,1.0])
+                
+            self.terrain_meshes = terrains_mesh_list
         #========================================================================
         #laod the 3d buildings
         #========================================================================
@@ -173,11 +189,16 @@ class AnimationVisualiser(QtGui.QWidget):
         #========================================================================
         #determine the back and front of each geometry 
         #========================================================================
+        if "contextual_map" in arg_list:
+            stg_func.viz_graphic_items([context_map], self.view3d)
         if "terrains" in arg_list:
             stg_func.viz_graphic_items(terrains_mesh_list, self.view3d)
         
         if "roads" in arg_list:
             stg_func.viz_graphic_items(road_meshes , self.view3d)
+            
+        if "map" in arg_list:
+            stg_func.viz_graphic_items([mapx], self.view3d)
         
         if "trees" in arg_list:
             stg_func.viz_graphic_items(tree_meshes, self.view3d)
@@ -341,7 +362,7 @@ if __name__ == '__main__':
     win = AnimationVisualiser()
     win.setWindowTitle("Animation")
     win.show()
-    win.resize(1800,1000)
+    win.showMaximized()
     win.animation()
 #    if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
 #            QtGui.QApplication.instance().exec_()

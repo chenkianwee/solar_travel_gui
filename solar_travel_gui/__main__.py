@@ -2,8 +2,9 @@ import sys
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
-from solar_travel_gui.stg_dashboard import Dashboard
+
 # from stg_dashboard import Dashboard
+from solar_travel_gui.stg_dashboard import Dashboard
 
 def main(args=None):
     if args is None:

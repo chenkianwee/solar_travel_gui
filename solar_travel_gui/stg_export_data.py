@@ -133,7 +133,6 @@ class ExportData(QtGui.QWidget):
             
             path_dict = stg_func.retrieve_travel_path_analysis(self.travel_dir, start_hour, end_hour)
             parking_dict = stg_func.retrieve_parking_analysis(self.parking_dir, start_hour, end_hour)
-            strx = "Date,DistanceTravelled(m),ParkingTime(hr),SolarMax(wh/m2),SolarMaxPos,SolarMaxZ(m),SolarMin(wh/m2),SolarMinPos,SolarMinZ(m),SolarMedian(wh/m2),SolarMedPos,SolarMedZ(m)\n"
             hour_interest = range(start_hour, end_hour+1)
             
             self.process_status = "Read all Dicitonaries ... "

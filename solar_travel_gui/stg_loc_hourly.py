@@ -272,7 +272,7 @@ def read_process_loc_json(location_filepath):
     #=====================================================================
     #CHANGE THE JSON DATA HERE WHEN CODING
     #=====================================================================
-    json_data = json.load(location_f)
+    json_data = json.load(location_f)["locations"]
     #json_data = json_data[1100:1200]
     location_f.close()
     

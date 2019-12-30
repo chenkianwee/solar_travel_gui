@@ -87,6 +87,7 @@ class ProcessTravel(QtGui.QWidget):
         #empty the source file
         source_path = os.path.join(travel_dir, "source.json")
         stg_func.clean_file(source_path)
+        self.params.param('Progress').setValue("ALL DATA SUCCESSFULLY CLEARED FROM FOLDER")
         
     def process_travel_data(self):
         self.timer = pg.QtCore.QTimer()

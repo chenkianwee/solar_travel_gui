@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import subprocess
 from dateutil.parser import parse
@@ -10,7 +11,7 @@ import pyqtgraph.opengl as gl
 from pyqtgraph.Qt import QtGui, QtCore
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-#import stg_function as stg_func
+# import stg_function as stg_func
 import solar_travel_gui.stg_function as stg_func
 
 class Dashboard(QtGui.QWidget):
@@ -70,7 +71,9 @@ class Dashboard(QtGui.QWidget):
         self.travel_dir = os.path.join(data_dir, "travel")
         self.parking_dir = os.path.join(data_dir, "parking")
         self.mesh_dir = os.path.join(data_dir, "context3d")
-        
+        self.current_path = os.path.dirname(__file__)
+        self.pyexe = sys.executable
+         
         #check if they are existing data from previous session
         self.check_travel_dir()
         
@@ -100,7 +103,9 @@ class Dashboard(QtGui.QWidget):
         #load the complete GUI
         #========================================================================
         layers_parm = [dict(name='Static Layer', type = 'group',
-                            children = [dict(name = 'Terrain', type = 'bool', value=True),
+                            children = [dict(name = 'Contextual Map', type = 'bool', value=True),
+                                        dict(name = 'Map', type = 'bool', value=False),
+                                        dict(name = 'Terrain', type = 'bool', value=True),
                                         dict(name = 'Buildings', type = 'bool', value=True),
                                         dict(name = 'Trees', type = 'bool', value=True),
                                         dict(name = 'Roads', type = 'bool', value=True)]
@@ -161,14 +166,20 @@ class Dashboard(QtGui.QWidget):
         self.analyse_range = dict(name='Analysis', type='group', expanded = True, title = "Step 4: Find Potential Parking Spots",
                                   children=[dict(name = 'Find Potential Parking', type = 'action')]
                                 )   
-                                 
-        self.export_range = dict(name='Export', type='group', expanded = True, title = "Step 5: Export the Data",
+        
+        self.plot_range = dict(name='Plot', type='group', expanded = True, title = "Step 5: Plot the Data",
+                                  children=[dict(name = 'Plot Data', type = 'action')]
+                                )
+        
+        
+        self.export_range = dict(name='Export', type='group', expanded = True, title = "Step 6: Export the Data",
                                   children=[dict(name = 'Export Data', type = 'action')]
                                 )
         
         self.params.addChildren([self.load_result,
                                  self.date_range,
                                  self.analyse_range,
+                                 self.plot_range,
                                  self.export_range])
                                  
         self.tree.setParameters(self.params, showTop=False)
@@ -200,6 +211,8 @@ class Dashboard(QtGui.QWidget):
         
         self.params.param('Analysis').param("Find Potential Parking").sigActivated.connect(self.find_parking)
         
+        self.params.param('Plot').param("Plot Data").sigActivated.connect(self.plot_data)
+        
         self.params.param('Export').param("Export Data").sigActivated.connect(self.export_data)
         
         self.params2.param('Min Max').param("Change Min Max").sigActivated.connect(self.change_min_max)
@@ -221,25 +234,38 @@ class Dashboard(QtGui.QWidget):
             self.is_parking_layer = True
             
         #========================================================================
+        #load the satelite map
+        #========================================================================
+        map_path = os.path.join(self.mesh_dir, "context_map.tif")
+        context_map = stg_func.img2glimage(map_path, "additive")
+        
+        map_path2 = os.path.join(self.mesh_dir, "map.tif")
+        mapx = stg_func.img2glimage(map_path2, "translucent")
+        stg_func.set_graphic_items_visibility([mapx], False)
+        stg_func.move_graphic_items([mapx], [0,0,20])
+        
+        self.context_map = context_map
+        self.map = mapx
+        #========================================================================
         #load the 3d terrain model
         #========================================================================
         terrain_mesh_json = os.path.join(self.mesh_dir, "terrains.json")
         terrains_mesh_list = stg_func.read_meshes_json(terrain_mesh_json, shader = "shaded",  gloptions = "additive")
-        
+        #stg_func.move_graphic_items(terrains_mesh_list, [0,0,-10])
         for t in terrains_mesh_list:
             t.setColor([1.0,1.0,1.0,1.0])
             
         self.terrain_meshes = terrains_mesh_list
         #========================================================================
-        #laod the 3d buildings
+        #load the 3d buildings
         #========================================================================
         facade_mesh_json = os.path.join(self.mesh_dir, "facade.json")
         roof_mesh_json =  os.path.join(self.mesh_dir, "roof.json")
         roof_edge_json = os.path.join(self.mesh_dir, "roof_edge.json")
         
-        roof_mesh_list = stg_func.read_meshes_json(roof_mesh_json, shader = "balloon", gloptions = "additive", draw_edges = False)
-        roof_mesh_list[0].setColor([0.5,0.5,0.5,1])
-        facade_mesh_list = stg_func.read_meshes_json(facade_mesh_json, shader = "balloon", gloptions = "additive", draw_edges = False)
+        roof_mesh_list = stg_func.read_meshes_json(roof_mesh_json, shader = "shaded", gloptions = "opaque", draw_edges = False)
+        roof_mesh_list[0].setColor([0.9,0.9,0.9,0.5])
+        facade_mesh_list = stg_func.read_meshes_json(facade_mesh_json, shader = "shaded", gloptions = "additive", draw_edges = False)
         line_list = stg_func.read_edges_json(roof_edge_json, line_colour = (0,0,0,1), width = 1, antialias=True, mode="lines")
         
         self.roof_meshes = roof_mesh_list
@@ -249,7 +275,7 @@ class Dashboard(QtGui.QWidget):
         #load the trees 
         #========================================================================
         tree_mesh_json = os.path.join(self.mesh_dir, "trees.json")
-        tree_meshes = stg_func.read_meshes_json(tree_mesh_json, shader = "shaded", gloptions = "additive")
+        tree_meshes = stg_func.read_meshes_json(tree_mesh_json, shader = "shaded", gloptions = "translucent")
         tree_meshes[0].setColor([0,0.5,0,1])
         
         self.tree_meshes = tree_meshes
@@ -257,10 +283,10 @@ class Dashboard(QtGui.QWidget):
         #load roads 
         #========================================================================
         road_mesh_json = os.path.join(self.mesh_dir, "roads.json")
-        road_meshes = stg_func.read_meshes_json(road_mesh_json)
+        road_meshes = stg_func.read_meshes_json(road_mesh_json,  shader = "shaded",  gloptions = "translucent")
         for mesh in road_meshes:
-            mesh.setColor([0.5,0.5,0.5,1])
-        
+            mesh.setColor([0.5,0.5,0.5,0.5])
+    
         self.road_meshes = road_meshes
         #========================================================================
         #load falsecolour results 
@@ -268,7 +294,7 @@ class Dashboard(QtGui.QWidget):
         #get all the geometries 
         json_mesh_filepath = os.path.join(self.mesh_dir, "solar_grd.json")  
         
-        falsecolour_mesh_list = stg_func.read_meshes_json(json_mesh_filepath, shader = "balloon", gloptions = "translucent")
+        falsecolour_mesh_list = stg_func.read_meshes_json(json_mesh_filepath, shader = "shaded", gloptions = "translucent")
         self.colour_meshes = falsecolour_mesh_list
         #========================================================================
         #load extrusion results 
@@ -281,15 +307,21 @@ class Dashboard(QtGui.QWidget):
         #========================================================================
         #determine the back and front of each geometry 
         #========================================================================
+        stg_func.viz_graphic_items([context_map], self.view3d)
+        
+        
         stg_func.viz_graphic_items(terrains_mesh_list, self.view3d)
         
         stg_func.viz_graphic_items(road_meshes , self.view3d)
+        
+        stg_func.viz_graphic_items([mapx], self.view3d)
         
         stg_func.viz_graphic_items(tree_meshes, self.view3d)
         
         stg_func.viz_graphic_items(facade_mesh_list, self.view3d)
         stg_func.viz_graphic_items(line_list, self.view3d)
         stg_func.viz_graphic_items(roof_mesh_list, self.view3d)
+        
         #========================================================================
         #configure the camera to orbit around the terrain
         #========================================================================
@@ -298,12 +330,28 @@ class Dashboard(QtGui.QWidget):
         self.view3d.opts['center'] = PyQt5.QtGui.QVector3D(midpt[0], midpt[1], midpt[2])
         self.view3d.opts['distance'] = 5000
          
+    def plot_data(self):
+        parking_dir = self.parking_dir
+        travel_dir = self.travel_dir
+        current_path = self.current_path
+        plot_file = os.path.join(current_path, "stg_plot_data.py")
+        
+        call_list = [self.pyexe, plot_file, parking_dir, travel_dir]
+        #=================================================================
+        #execute the processing parking GUI
+        #=================================================================
+        subprocess.Popen(call_list)
+        #=================================================================
+        #add a new analysis layer to the layer tab
+        #=================================================================
+        
     def export_data(self):
         parking_dir = self.parking_dir
         travel_dir = self.travel_dir
-        export_file = os.path.join(os.getcwd(), "stg_export_data.py")
+        current_path = self.current_path
+        export_file = os.path.join(current_path, "stg_export_data.py")
         
-        call_list = ["python", export_file, parking_dir, travel_dir]
+        call_list = [self.pyexe, export_file, parking_dir, travel_dir]
         #=================================================================
         #execute the processing parking GUI
         #=================================================================
@@ -316,9 +364,10 @@ class Dashboard(QtGui.QWidget):
         parking_dir = self.parking_dir
         travel_dir = self.travel_dir
         solar_dir = self.solar_dir
-        process_file = os.path.join(os.getcwd(), "stg_process_parking.py")
+        current_path = self.current_path
+        process_file = os.path.join(current_path, "stg_process_parking.py")
         
-        call_list = ["python", process_file, parking_dir, travel_dir, solar_dir]
+        call_list = [self.pyexe, process_file, parking_dir, travel_dir, solar_dir]
         #=================================================================
         #execute the processing parking GUI
         #=================================================================
@@ -371,9 +420,10 @@ class Dashboard(QtGui.QWidget):
     def load_travel(self):
         terrain_path = os.path.join(self.mesh_dir, "terrain.brep")
         travel_dir = self.travel_dir
-        process_file = os.path.join(os.getcwd(), "stg_process_travel.py")
-        
-        call_list = ["python", process_file, terrain_path, travel_dir]
+        current_path = self.current_path
+        process_file = os.path.join(current_path, "stg_process_travel.py")
+
+        call_list = [self.pyexe, process_file, terrain_path, travel_dir]
         #=================================================================
         #execute the processing travel GUI
         #=================================================================
@@ -427,6 +477,8 @@ class Dashboard(QtGui.QWidget):
             
     def change_visibility(self):
         #get all the settings for static layers
+        map_bool = self.params.param('Layers').param('Static Layer').param("Contextual Map").value()
+        map_bool2 = self.params.param('Layers').param('Static Layer').param("Map").value()
         terrain_bool = self.params.param('Layers').param('Static Layer').param("Terrain").value()
         building_bool = self.params.param('Layers').param('Static Layer').param("Buildings").value()
         tree_bool = self.params.param('Layers').param('Static Layer').param("Trees").value()
@@ -437,6 +489,9 @@ class Dashboard(QtGui.QWidget):
         hrly_cart_bool = self.params.param('Layers').param('Extrusion Layer').param("Hourly Cart Travel Behaviour").value()
         
         #get all the meshes
+        context_map = self.context_map
+        mapx = self.map
+        
         terrains = self.terrain_meshes
         
         trees = self.tree_meshes
@@ -453,6 +508,9 @@ class Dashboard(QtGui.QWidget):
         ext_lines = self.extrude_lines
         
         #set the visibility
+        
+        stg_func.set_graphic_items_visibility([context_map], map_bool)
+        stg_func.set_graphic_items_visibility([mapx], map_bool2)
         stg_func.set_graphic_items_visibility(terrains, terrain_bool)
         
         stg_func.set_graphic_items_visibility(roofs, building_bool)
@@ -467,6 +525,8 @@ class Dashboard(QtGui.QWidget):
         stg_func.set_graphic_items_visibility(path_lines, hrly_cart_bool)
         stg_func.set_graphic_items_visibility(extrude_meshes, hrly_cart_bool)
         stg_func.set_graphic_items_visibility(ext_lines, hrly_cart_bool)
+        
+        
         
         #add a new analysis layer to the layer tab
         children = self.params.param('Layers').param("Falsecolour Layer").children()
@@ -699,8 +759,11 @@ class Dashboard(QtGui.QWidget):
     def play_data(self):
         str_start_date = self.str_start_date
         str_end_date = self.str_end_date
-        current_path = os.path.dirname(__file__)
+        current_path = self.current_path
         ani_file = os.path.join(current_path, "stg_animation.py")
+        
+        map_bool = self.params.param('Layers').param('Static Layer').param("Contextual Map").value()
+        map_bool2 = self.params.param('Layers').param('Static Layer').param("Map").value()
         
         terrain_bool = self.params.param('Layers').param('Static Layer').param("Terrain").value()
         building_bool = self.params.param('Layers').param('Static Layer').param("Buildings").value()
@@ -713,6 +776,12 @@ class Dashboard(QtGui.QWidget):
         
         #get all the visible layers
         layer_list = []
+        
+        if map_bool:
+            layer_list.append("contextual_map")
+        
+        if map_bool2:
+            layer_list.append("map")
         
         if terrain_bool:
             layer_list.append("terrains")
@@ -737,7 +806,7 @@ class Dashboard(QtGui.QWidget):
             if hrly_park_bool:
                 layer_list.append("parkings")
             
-        call_list = ["python", ani_file, str_start_date, str_end_date, str(self.min_val), str(self.max_val)]
+        call_list = [self.pyexe, ani_file, str_start_date, str_end_date, str(self.min_val), str(self.max_val)]
         for lay in layer_list:
             call_list.append(lay)
             

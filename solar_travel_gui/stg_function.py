@@ -11,6 +11,8 @@ import numpy as np
 import pyqtgraph.opengl as gl
 import shapefile
 
+import gdal
+
 week_hours = 168
 weekly_hr_list = [168, 336, 504, 672, 840, 1008, 1176, 1344, 1512, 1680, 1848, 2016, 2184, 2352, 2520, 2688, 
                   2856, 3024, 3192, 3360, 3528, 3696, 3864, 4032, 4200, 4368, 4536, 4704, 4872, 5040, 5208, 
@@ -129,6 +131,62 @@ def clear_3dview(view_3d):
         
         all_items = view_3d.items
         nitems = len(all_items)
+        
+def move_graphic_items(graphic_item_list, dxdydz):
+    for m in graphic_item_list:
+        if m !=None:
+            m.translate(dxdydz[0],dxdydz[1],dxdydz[2])
+
+#===========================================================================================
+#IMAGE RELATED FUNCTIONS
+#=========================================================================================== 
+def image2array(raster_path):
+    # read raster records
+    raster_dataset = gdal.Open(raster_path)
+    
+    (xmin, x_pxsize, x_rotation, ymax, y_rotation, y_pxsize) = raster_dataset.GetGeoTransform()
+    xcols = raster_dataset.RasterXSize
+    yrows = raster_dataset.RasterYSize
+    
+    sizex = x_pxsize*xcols
+    sizey = y_pxsize*yrows
+    if sizey < 0:
+        sizey = sizey*-1
+    
+    xmax = xmin + sizex
+    ymin = ymax - sizey
+    
+    rgbas = raster_dataset.ReadAsArray(0, 0, xcols, yrows)
+    img3d_arr = rgbas.T
+    
+    midpt = [xmin + ((xmax-xmin)/2), ymin + ((ymax-ymin)/2), 0]
+    
+    cond1 = (img3d_arr == [0,0,0,255]).all(axis = 2)
+    cond1_shape = cond1.shape
+    cond2 = np.reshape(cond1, (cond1_shape[0],cond1_shape[1],1))
+    cond3 = np.repeat(cond2, 4, axis=2)
+    
+    np.place(img3d_arr, cond3, np.array([255,255,255,0], dtype = 'uint8'))
+    
+    return img3d_arr, sizex, sizey, xcols, yrows, midpt
+
+def img2glimage(img_path, gloptions):
+    imgarr, sizex, sizey, xcols, yrows, midpt = image2array(img_path)
+    v1 = gl.GLImageItem(imgarr)
+    sx = sizex/xcols
+    sy = sizey/yrows
+    v1.scale(sx, sy, 0)
+    
+    dx = sizex/2#sizex/2
+    dy = sizey/2#sizey/2
+    v1.translate(-1*dx, -1*dy, 0)
+    v1.rotate(180, 0,1,0)
+    v1.rotate(180, 0,0,1)
+    
+    v1.translate(midpt[0], midpt[1], 0)
+    v1.setGLOptions(gloptions)
+    return v1
+
 #===========================================================================================
 #DRAW FACES RELATED FUNCTIONS
 #===========================================================================================
@@ -878,7 +936,7 @@ def retrieve_solar4analysis(hour_list, week_list, solar_dir):
     
     return solar_res_dict
         
-def export_data(hour, path_dict, parking_dict, projection):
+def retrieve_plot_data(hour, path_dict, parking_dict, projection):
     date = index2date(hour)
     date_str = date.strftime("%Y-%m-%dT%H:%M:%S.000000Z")
     total_dist = 0
@@ -935,11 +993,20 @@ def export_data(hour, path_dict, parking_dict, projection):
         medz = solar_med_pos[2]
         solar_med_pos = (projection(solar_med_pos[0], solar_med_pos[1], inverse = True))
         solar_med_pos = str(solar_med_pos[0]) + ";" + str(solar_med_pos[1])
+    
+    return {'date_str':date_str, 'total_dist':total_dist, 'total_park_time':total_park_time, 
+            'solar_max':solar_max, 'solar_max_pos': solar_max_pos, 'maxz': maxz,
+            'solar_min':solar_min, 'solar_min_pos': solar_min_pos, 'minz': minz, 
+            'solar_med':solar_median, 'solar_med_pos': solar_med_pos, 'medz': medz} 
         
-    strdata = date_str + "," + str(total_dist) + "," + str(total_park_time) + "," +\
-                str(solar_max) + "," + str(solar_max_pos) + "," + str(maxz) + "," +\
-                str(solar_min) + "," + str(solar_min_pos) + "," + str(minz) + "," +\
-                str(solar_median) + "," + str(solar_med_pos) + "," + str(medz) + "\n"        
+def export_data(hour, path_dict, parking_dict, projection):
+    
+    res_dict = retrieve_plot_data(hour, path_dict, parking_dict, projection)
+            
+    strdata =   res_dict['date_str'] + "," + str(res_dict['total_dist']) + "," + str(res_dict['total_park_time']) + "," +\
+                str(res_dict['solar_max']) + "," + str(res_dict['solar_max_pos']) + "," + str(res_dict['maxz']) + "," +\
+                str(res_dict['solar_min']) + "," + str(res_dict['solar_min_pos']) + "," + str(res_dict['minz']) + "," +\
+                str(res_dict['solar_med']) + "," + str(res_dict['solar_med_pos']) + "," + str(res_dict['medz']) + "\n"        
     
     return strdata
 
