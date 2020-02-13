@@ -1,6 +1,6 @@
 package:
   name: solar_travel_gui
-  version: "0.03"
+  version: "0.05"
   
 source:
   path: ../

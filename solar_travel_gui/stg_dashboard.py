@@ -11,8 +11,8 @@ import pyqtgraph.opengl as gl
 from pyqtgraph.Qt import QtGui, QtCore
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-# import stg_function as stg_func
-import solar_travel_gui.stg_function as stg_func
+import stg_function as stg_func
+# import solar_travel_gui.stg_function as stg_func
 
 class Dashboard(QtGui.QWidget):
     def __init__(self):
@@ -134,9 +134,9 @@ class Dashboard(QtGui.QWidget):
         
         self.load_result = dict(name='Load Result', type='group', expanded = True, title = "Step 2: Specify a Date & Time and Manually Explore the Dynamic Data",
                                 children=[dict(name='Date of Interest', type = 'group', title = "Specify Date of Interest", 
-                                                   children = [dict(name='Year:', type= 'list', values= [2019], value=2019),
-                                                               dict(name='Month:', type= 'int', limits = (1,12), value = 9),
-                                                               dict(name='Day:', type= 'int', limits = (1,31), value = 2),
+                                                   children = [dict(name='Year:', type= 'list', values= [2019,2020], value=2020),
+                                                               dict(name='Month:', type= 'int', limits = (1,12), value = 2),
+                                                               dict(name='Day:', type= 'int', limits = (1,31), value = 5),
                                                                dict(name='Hour:', type= 'int', limits = (0,23), value = 10)]),
                                               dict(name='Data Loaded', type='str', readonly=True),
                                               dict(name='Load Data', type='action'),
@@ -147,13 +147,13 @@ class Dashboard(QtGui.QWidget):
     
         self.date_range = dict(name='Date Range', type='group', expanded = True, title = "Step 3: Specify a Date Range and Automatically Explore the Dynamic Data",
                               children=[dict(name='Start Date', type = 'group', expanded = False, title = "Specify Start Date", 
-                                             children = [dict(name='Year:', type= 'list', values= [2018, 2019], value=2019),
+                                             children = [dict(name='Year:', type= 'list', values= [2019, 2020], value=2020),
                                                          dict(name='Month:', type= 'int', limits = (1,12), value = 9),
                                                          dict(name='Day:', type= 'int', limits = (1,31), value = 2),
                                                          dict(name='Hour:', type= 'int', limits = (0,23), value = 10)]),
                                         
                                         dict(name='End Date', type = 'group', expanded = False, title = "Specify End Date",
-                                             children = [dict(name='Year:', type= 'list', values= [2018, 2019], value=2019),
+                                             children = [dict(name='Year:', type= 'list', values= [2019,2020], value=2020),
                                                          dict(name='Month:', type= 'int', limits = (1,12), value = 9),
                                                          dict(name='Day:', type= 'int', limits = (1,31), value = 30),
                                                          dict(name='Hour:', type= 'int', limits = (0,23), value = 18)]),
@@ -340,6 +340,7 @@ class Dashboard(QtGui.QWidget):
         #=================================================================
         #execute the processing parking GUI
         #=================================================================
+        # print(call_list)
         subprocess.Popen(call_list)
         #=================================================================
         #add a new analysis layer to the layer tab
@@ -352,6 +353,7 @@ class Dashboard(QtGui.QWidget):
         export_file = os.path.join(current_path, "stg_export_data.py")
         
         call_list = [self.pyexe, export_file, parking_dir, travel_dir]
+        # print(call_list)
         #=================================================================
         #execute the processing parking GUI
         #=================================================================
@@ -552,6 +554,7 @@ class Dashboard(QtGui.QWidget):
                         str(s_hour) + ":" + str(s_min) + ":" + str(s_sec)
                                 
         date = parse(str_sp_date)
+        year = date.year
         self.current_date = date
         str_date = date.strftime("%Y-%m-%d %H:%M:%S")
         self.params.param('Load Result').param('Data Loaded').setValue(str_date)
@@ -572,7 +575,7 @@ class Dashboard(QtGui.QWidget):
         extrude_lines = self.extrude_lines 
         
         travel_dir = self.travel_dir
-        mesh_vis, bdry_vis, path_vis = stg_func.retrieve_travel_data(hour_index, travel_dir, extrude_meshes, extrude_lines, path_lines, self.view3d)
+        mesh_vis, bdry_vis, path_vis = stg_func.retrieve_travel_data(hour_index, year, travel_dir, extrude_meshes, extrude_lines, path_lines, self.view3d)
         
         if mesh_vis !=None:
             stg_func.viz_graphic_items([mesh_vis], self.view3d)
@@ -594,7 +597,7 @@ class Dashboard(QtGui.QWidget):
         #=============================================
         parking_meshes = self.parking_meshes
         parking_dir = self.parking_dir
-        parking_mesh = stg_func.retrieve_parking_data(hour_index, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
+        parking_mesh = stg_func.retrieve_parking_data(hour_index, year, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
         if parking_mesh != None:
             stg_func.viz_graphic_items([parking_mesh], self.view3d)
         
@@ -604,10 +607,11 @@ class Dashboard(QtGui.QWidget):
             stg_func.set_graphic_items_visibility(self.parking_meshes, hrly_park_bool)
     
     def forward(self):
-        current_index = self.current_index
         current_date = self.current_date
-        forward = current_index + 1
+        
         forward_date = current_date + timedelta(hours=1)
+        year = forward_date.year
+        forward = stg_func.date2index(forward_date)
         #=============================================
         #retrieve the solar data from the date index
         #=============================================
@@ -622,7 +626,7 @@ class Dashboard(QtGui.QWidget):
         extrude_lines = self.extrude_lines 
         
         travel_dir = self.travel_dir
-        mesh_vis, bdry_vis, path_vis = stg_func.retrieve_travel_data(forward, travel_dir, extrude_meshes, extrude_lines, path_lines, self.view3d)
+        mesh_vis, bdry_vis, path_vis = stg_func.retrieve_travel_data(forward, year, travel_dir, extrude_meshes, extrude_lines, path_lines, self.view3d)
         
         if mesh_vis !=None:
             stg_func.viz_graphic_items([mesh_vis], self.view3d)
@@ -644,7 +648,7 @@ class Dashboard(QtGui.QWidget):
         #=============================================
         parking_meshes = self.parking_meshes
         parking_dir = self.parking_dir
-        parking_mesh = stg_func.retrieve_parking_data(forward, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
+        parking_mesh = stg_func.retrieve_parking_data(forward, year, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
         if parking_mesh != None:
             stg_func.viz_graphic_items([parking_mesh], self.view3d)
         
@@ -667,10 +671,10 @@ class Dashboard(QtGui.QWidget):
         self.params.param('Load Result').param('Date of Interest').param("Hour:").setValue(int(forward_date.strftime("%H")))
         
     def backward(self):
-        current_index = self.current_index
         current_date = self.current_date
-        backward = current_index - 1
         backward_date = current_date - timedelta(hours=1)
+        year = backward_date.year
+        backward = stg_func.date2index(backward_date)
         #=============================================
         #retrieve the solar data from the date index
         #=============================================
@@ -685,7 +689,7 @@ class Dashboard(QtGui.QWidget):
         extrude_lines = self.extrude_lines 
         
         travel_dir = self.travel_dir
-        mesh_vis, bdry_vis, path_vis = stg_func.retrieve_travel_data(backward, travel_dir, extrude_meshes, extrude_lines, path_lines, self.view3d)
+        mesh_vis, bdry_vis, path_vis = stg_func.retrieve_travel_data(backward, year, travel_dir, extrude_meshes, extrude_lines, path_lines, self.view3d)
         
         if mesh_vis !=None:
             stg_func.viz_graphic_items([mesh_vis], self.view3d)
@@ -708,7 +712,7 @@ class Dashboard(QtGui.QWidget):
         #=============================================
         parking_meshes = self.parking_meshes
         parking_dir = self.parking_dir
-        parking_mesh = stg_func.retrieve_parking_data(backward, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
+        parking_mesh = stg_func.retrieve_parking_data(backward, year, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
         if parking_mesh != None:
             stg_func.viz_graphic_items([parking_mesh], self.view3d)
         
@@ -825,12 +829,14 @@ class Dashboard(QtGui.QWidget):
         
         #then change the colours on the model
         hour_index = self.current_index 
+        date = self.current_date
+        year = date.year
         solar_mesh = self.colour_meshes
         stg_func.retrieve_solar_data(solar_mesh[0], hour_index, solar_dir, self.min_val, self.max_val)
         
         parking_meshes = self.parking_meshes
         parking_dir = self.parking_dir
-        parking_mesh = stg_func.retrieve_parking_data(hour_index, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
+        parking_mesh = stg_func.retrieve_parking_data(hour_index, year, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
         if parking_mesh != None:
             stg_func.viz_graphic_items([parking_mesh], self.view3d)
         

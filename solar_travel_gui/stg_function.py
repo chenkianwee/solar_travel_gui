@@ -443,21 +443,38 @@ def read_edges_att_json(json_filepath, line_colour = (1,1,1,1), width = 1, antia
 #===========================================================================================
 #RETRIEVE DYNAMIC DATA RELATED
 #===========================================================================================    
+def is_leap_year(year):
+    is_leap = False
+    if year%4 == 0:
+        is_leap = True
+    return is_leap
+
 def date2index(date):
-    str_sp_date = str(2019) + "-" + str(1) + "-" + str(1) + "-" +\
+    #TODO HAVE TO FULLY SOLVE THE LEAP YEAR ISSUE
+    year = date.year
+    tzinfo = date.tzinfo
+    str_sp_date = str(year) + "-" + str(1) + "-" + str(1) + "-" +\
                     str(0) + ":" + str(0) + ":" + str(0)
                     
     date0 = parse(str_sp_date)
+    date0 = date0.replace(tzinfo = tzinfo)
     date1 = date
     td2 = date1-date0
     hours = td2.total_seconds()/3600
-    return int(hours)
+    
+    is_leap = is_leap_year(year)
+    if is_leap:
+        #check which hour is this
+        if hours >= 1416:
+            hours = hours-24
+        return int(hours)
+    else:
+        return int(hours)
 
-def index2date(hour_index):
-    str_sp_date = str(2019) + "-" + str(1) + "-" + str(1) + "-" +\
+def index2date(hour_index, year = 2020):
+    str_sp_date = str(year) + "-" + str(1) + "-" + str(1) + "-" +\
                     str(0) + ":" + str(0) + ":" + str(0)
                     
-    
     date0 = parse(str_sp_date)
     
     td = datetime.timedelta(hours=hour_index)
@@ -495,8 +512,8 @@ def retrieve_colour(hour_index, solar_dir, minval, maxval):
         end_hr = week_hours * i2
         start_hr = end_hr - week_hours
         if i == 51:
-            end_hr = 8759
-
+            end_hr = 8760
+            
         if start_hr <= hour_index < end_hr:
             json_filepath = os.path.join(solar_dir, "viz_grd_solar_week" + str(i) + ".json")
             f = open(json_filepath, "r")
@@ -547,7 +564,7 @@ def retrieve_hourly_edges(file_path, hour_index, line_colour = (1,1,1,1), width 
     
     return plt, att_dict
 
-def retrieve_parking_data(hour_index, parking_dir, parking_mesh, view_3d, minval, maxval):
+def retrieve_parking_data(hour_index, year, parking_dir, parking_mesh, view_3d, minval, maxval):
     numpycolour = np.vectorize(pseudocolor)
     if parking_mesh[0] != None:
         view_3d.removeItem(parking_mesh[0])
@@ -562,7 +579,8 @@ def retrieve_parking_data(hour_index, parking_dir, parking_mesh, view_3d, minval
         
         if start_hr <= hour_index < end_hr:
             try:
-                parking_filepath = os.path.join(parking_dir, "viz", "viz_parking_wk" + str(i) + ".json")
+                parking_filepath = os.path.join(parking_dir, "viz", "viz_parking_wk" + str(i) + "year" + str(year) + ".json")
+                
                 mesh, mesh_att = retrieve_hourly_meshes(parking_filepath, hour_index, shader= "shaded", gloptions = "opaque", draw_edges = False, edge_colours = [0,0,0,1] )
                 
                 solar_result = mesh_att["solar_result"]
@@ -575,7 +593,7 @@ def retrieve_parking_data(hour_index, parking_dir, parking_mesh, view_3d, minval
                 break
     return mesh
 
-def retrieve_travel_data(hour_index, travel_dir, extrude_mesh, extrude_bdry, path, view_3d):
+def retrieve_travel_data(hour_index, year, travel_dir, extrude_mesh, extrude_bdry, path, view_3d):
     if extrude_mesh[0] != None:
         view_3d.removeItem(extrude_mesh[0])
         view_3d.removeItem(extrude_bdry[0])
@@ -595,14 +613,14 @@ def retrieve_travel_data(hour_index, travel_dir, extrude_mesh, extrude_bdry, pat
         
         if start_hr <= hour_index < end_hr:
             try:
-                extrude_filepath = os.path.join(travel_dir, "viz", "extrude_meshes_wk" + str(i) + ".json")
+                extrude_filepath = os.path.join(travel_dir, "viz", "extrude_meshes_wk" + str(i) + "year" + str(year) + ".json")
                 mesh_vis, mesh_att = retrieve_hourly_meshes(extrude_filepath, hour_index, shader= "shaded", gloptions = "additive", draw_edges = False, edge_colours = [0,0,0,1] )
                 edit_mesh_colour([mesh_vis], [1,0,0,1])
                 
-                extrude_edges_filepath = os.path.join(travel_dir, "viz", "extrude_bdry_wk" + str(i) +  ".json")
+                extrude_edges_filepath = os.path.join(travel_dir, "viz", "extrude_bdry_wk" + str(i) + "year" + str(year) +  ".json")
                 bdry_vis, bdry_att = retrieve_hourly_edges(extrude_edges_filepath, hour_index, line_colour = (1,0,0,1), width = 3, antialias=True, mode="lines")
                 
-                path_edges_filepath = os.path.join(travel_dir, "viz", "path_wk"+ str(i) + ".json")
+                path_edges_filepath = os.path.join(travel_dir, "viz", "path_wk"+ str(i) + "year" + str(year) + ".json")
                 path_vis, path_att = retrieve_hourly_edges(path_edges_filepath, hour_index, line_colour = (1,0,0,1), width = 3, antialias=True, mode="lines")
                 
                 break
@@ -683,103 +701,224 @@ def id_weeks(start_hour, end_hour):
             week_list.append(week_index)
     return week_list
             
-def retrieve_travel_ext_analysis(travel_dir, start_hour, end_hour):
-    travel_dict = {}
-    week_list = id_weeks(start_hour, end_hour)
-    hour_interest = range(start_hour, end_hour+1)
-    for week in week_list:    
-        shp_filepath = os.path.join(travel_dir, "analysis", "extrusions_week" + str(week) + ".shp")
-        if os.path.isfile(shp_filepath):
-            shpatts = read_sf_poly(shp_filepath)
-            travels = shpatt2dict(shpatts)
-            #find only the hours of interest
-            end_wk_hr = weekly_hr_list[week]
-            if week == 0:
-                start_wk_hr = 0
-            else:
-                start_wk_hr = weekly_hr_list[week-1]
-            
-            week_range = range(start_wk_hr, end_wk_hr)
-            
-            a_multiset = collections.Counter(week_range)
-            b_multiset = collections.Counter(hour_interest)
+def retrieve_hours_frm_week_data_shp(hour_interest, week, shp_path, res_dict):
+    shpatts = read_sf_poly(shp_path)
+    data_dict = shpatt2dict(shpatts)
+    #find only the hours of interest
+    end_wk_hr = weekly_hr_list[week]
+    if week == 0:
+        start_wk_hr = 0
+    else:
+        start_wk_hr = weekly_hr_list[week-1]
+    
+    week_range = range(start_wk_hr, end_wk_hr)
+    
+    a_multiset = collections.Counter(week_range)
+    b_multiset = collections.Counter(hour_interest)
 
-            overlap = list((b_multiset & a_multiset).elements())
-#            week_remainder = list((a_multiset - b_multiset).elements())
+    overlap = list((b_multiset & a_multiset).elements())
+    
+    chosen = {}
+    for h in overlap:
+        if h in data_dict.keys():
+            chosen[h] = data_dict[h]
+        
+    res_dict.update(chosen)
+    
+def gen_week_hour_interest_from_year_cnt(ycnt, nyear, start_hour, end_hour):
+    if ycnt == 0:
+        if nyear ==1:
+            end_hr_yr = end_hour
+        else:
+            end_hr_yr = 8759
             
-            chosen = {}
-            for h in overlap:
-                if h in travels.keys():
-                    chosen[h] = travels[h]
-                
-            travel_dict.update(chosen)
+        week_list = id_weeks(start_hour, end_hr_yr)
+        hour_interest = range(start_hour, end_hr_yr+1)
+        
+    elif ycnt == nyear-1:
+        start_hr_yr = 0
+        week_list = id_weeks(start_hr_yr, end_hour)
+        hour_interest = range(start_hr_yr, end_hour+1)
+        
+    else:
+        week_list = range(52)
+        hour_interest = range(0, 8760)
+    
+    return week_list, hour_interest
+    
+    
+def retrieve_travel_ext_analysis(travel_dir, start_hour, start_yr, end_hour, end_yr):
+    travel_dict = {}
+    
+    if start_yr == end_yr:
+        year_list = [start_yr]
+    else:
+        year_list = range(start_yr, end_yr+1)
+        
+    nyear = len(year_list)
+    ycnt = 0
+    for year in year_list:
+        week_list, hour_interest = gen_week_hour_interest_from_year_cnt(ycnt, nyear, start_hour, end_hour)
+        yearly_dict = {}
+        for week in week_list:    
+            shp_path = os.path.join(travel_dir, "analysis", "extrusions_week" + str(week) + "year" + str(year) + ".shp")
+            if os.path.isfile(shp_path):
+                retrieve_hours_frm_week_data_shp(hour_interest, week, shp_path, yearly_dict)
+        travel_dict[year] = yearly_dict
+        ycnt+=1
 
     return travel_dict
-
-def retrieve_travel_path_analysis(travel_dir, start_hour, end_hour):
+    
+def retrieve_travel_path_analysis(travel_dir, start_hour, start_yr, end_hour, end_yr):
     travel_dict = {}
-    week_list = id_weeks(start_hour, end_hour)
-    hour_interest = range(start_hour, end_hour+1)
-    for week in week_list:    
-        shp_filepath = os.path.join(travel_dir, "analysis", "paths_week" + str(week) + ".shp")
-        if os.path.isfile(shp_filepath):
-            shpatts = read_sf_polyline(shp_filepath)
-            travels = shpatt2dict(shpatts)
-            #find only the hours of interest
-            end_wk_hr = weekly_hr_list[week]
-            if week == 0:
-                start_wk_hr = 0
-            else:
-                start_wk_hr = weekly_hr_list[week-1]
-            
-            week_range = range(start_wk_hr, end_wk_hr)
-            
-            a_multiset = collections.Counter(week_range)
-            b_multiset = collections.Counter(hour_interest)
-
-            overlap = list((b_multiset & a_multiset).elements())
-            
-            chosen = {}
-            for h in overlap:
-                if h in travels.keys():
-                    chosen[h] = travels[h]
+    
+    if start_yr == end_yr:
+        year_list = [start_yr]
+    else:
+        year_list = range(start_yr, end_yr+1)
+        
+    nyear = len(year_list)
+    ycnt = 0
+    for year in year_list:
+        week_list, hour_interest = gen_week_hour_interest_from_year_cnt(ycnt, nyear, start_hour, end_hour)
+        yearly_dict = {}
+        for week in week_list:    
+            shp_path = os.path.join(travel_dir, "analysis", "paths_week" + str(week) + "year" + str(year) + ".shp")
+            if os.path.isfile(shp_path):
+                shpatts = read_sf_polyline(shp_path)
+                data_dict = shpatt2dict(shpatts)
+                #find only the hours of interest
+                end_wk_hr = weekly_hr_list[week]
+                if week == 0:
+                    start_wk_hr = 0
+                else:
+                    start_wk_hr = weekly_hr_list[week-1]
                 
-            travel_dict.update(chosen)
-
+                week_range = range(start_wk_hr, end_wk_hr)
+                
+                a_multiset = collections.Counter(week_range)
+                b_multiset = collections.Counter(hour_interest)
+            
+                overlap = list((b_multiset & a_multiset).elements())
+                
+                chosen = {}
+                for h in overlap:
+                    if h in data_dict.keys():
+                        chosen[h] = data_dict[h]
+                    
+                yearly_dict.update(chosen)
+        travel_dict[year] = yearly_dict
+        ycnt+=1
+    
     return travel_dict
 
-def retrieve_parking_analysis(parking_dir, start_hour, end_hour):
+def retrieve_parking_analysis(parking_dir, start_hour, start_yr, end_hour, end_yr):
     parking_dict = {}
-    week_list = id_weeks(start_hour, end_hour)
-    hour_interest = range(start_hour, end_hour+1)
-    for week in week_list:    
-        json_filepath = os.path.join(parking_dir,"analysis", "parking_wk" + str(week) + ".json")
-        if os.path.isfile(json_filepath):
-            json_file = open(json_filepath, "r")
-            json_data = json.load(json_file)
-            #find only the hours of interest
-            end_wk_hr = weekly_hr_list[week]
-            if week == 0:
-                start_wk_hr = 0
-            else:
-                start_wk_hr = weekly_hr_list[week-1]
-            
-            week_range = range(start_wk_hr, end_wk_hr)
-            
-            a_multiset = collections.Counter(week_range)
-            b_multiset = collections.Counter(hour_interest)
-
-            overlap = list((b_multiset & a_multiset).elements())
-            
-            chosen = {}
-            for h in overlap:
-                if str(h) in json_data.keys():
-                    chosen[h] = json_data[str(h)]
+    
+    if start_yr == end_yr:
+        year_list = [start_yr]
+    else:
+        year_list = range(start_yr, end_yr+1)
+    
+    nyear = len(year_list)
+    ycnt = 0
+    for year in year_list:
+        week_list, hour_interest = gen_week_hour_interest_from_year_cnt(ycnt, nyear, start_hour, end_hour)
+        yearly_dict = {}
+    
+        for week in week_list:    
+            json_filepath = os.path.join(parking_dir,"analysis", "parking_wk" + str(week) + "year" + str(year) + ".json")
+            if os.path.isfile(json_filepath):
+                json_file = open(json_filepath, "r")
+                json_data = json.load(json_file)
+                #find only the hours of interest
+                end_wk_hr = weekly_hr_list[week]
+                if week == 0:
+                    start_wk_hr = 0
+                else:
+                    start_wk_hr = weekly_hr_list[week-1]
                 
-            parking_dict.update(chosen)
-            json_file.close()
+                week_range = range(start_wk_hr, end_wk_hr)
+                
+                a_multiset = collections.Counter(week_range)
+                b_multiset = collections.Counter(hour_interest)
+    
+                overlap = list((b_multiset & a_multiset).elements())
+                
+                chosen = {}
+                for h in overlap:
+                    if str(h) in json_data.keys():
+                        chosen[h] = json_data[str(h)]
+                    
+                yearly_dict.update(chosen)
+                json_file.close()
+                
+        parking_dict[year] = yearly_dict
+        ycnt+=1
 
     return parking_dict
+
+def find_stops(travel_dict, stop_threshold = 0.5):
+    new_travel_dict = {}
+    years = travel_dict.keys()
+    for year in years:
+        yearly_dict = travel_dict[year]
+        
+        new_dict = {}
+        for h, lst in yearly_dict.items():
+            new_list = []
+            for x in lst:
+                norm_val = x["norm_val"]
+                if norm_val >= stop_threshold:
+                    new_list.append(x)
+            if new_list:
+                new_dict[h] = new_list
+                
+        new_travel_dict[year] = new_dict
+
+    return new_travel_dict
+
+def retrieve_solar4analysis(solar_dir, start_hour, start_yr, end_hour, end_yr):
+    solar_res_dict = {}
+    
+    if start_yr == end_yr:
+        year_list = [start_yr]
+    else:
+        year_list = range(start_yr, end_yr+1)
+    
+    nyear = len(year_list)
+    ycnt = 0
+    for year in year_list:
+        week_list, hour_interest = gen_week_hour_interest_from_year_cnt(ycnt, nyear, start_hour, end_hour)
+        yearly_dict = {}
+        
+        for week in week_list:
+            end_wk_hr = weekly_hr_list[week]
+            if week == 0:
+                start_wk_hr = 0
+            else:
+                start_wk_hr = weekly_hr_list[week-1]
+            
+            week_range = range(start_wk_hr, end_wk_hr)
+            
+            a_multiset = collections.Counter(week_range)
+            b_multiset = collections.Counter(hour_interest)
+        
+            overlap = list((b_multiset & a_multiset).elements())
+            if overlap:
+                json_filepath = os.path.join(solar_dir, "viz_grd_solar_week" + str(week) + ".json")
+                f = open(json_filepath, "r")
+                json_data = json.load(f)
+                for o in overlap:
+                    hour_index2 = o - start_wk_hr
+                    solars = json_data[hour_index2]["solar"]
+                    yearly_dict[o] = solars
+                    f.close()
+                    
+        solar_res_dict[year] = yearly_dict
+        ycnt += 1
+    
+    return solar_res_dict
 
 def shpatt2dict(shpatt_list):
     dictx = {}
@@ -791,19 +930,6 @@ def shpatt2dict(shpatt_list):
         else:
             dictx[hour] = [d]
     return dictx
-
-def find_stops(travel_dict, stop_threshold = 0.5):
-    new_dict = {}
-    for h, lst in travel_dict.items():
-        new_list = []
-        for x in lst:
-            norm_val = x["norm_val"]
-            if norm_val >= stop_threshold:
-                new_list.append(x)
-        if new_list:
-            new_dict[h] = new_list
-
-    return new_dict
 
 def extract_pyptlist(pt_dict_list):
     pyptlist = []
@@ -909,49 +1035,25 @@ def gen_parking_mesh(data_dict, hour):
     else:
         return {"indices": [], "face_colours": None, "vertices": [], "attributes": {"solar_result": []}}
                         
-def retrieve_solar4analysis(hour_list, week_list, solar_dir):
-    solar_res_dict = {}
-    for week in week_list:
-        end_wk_hr = weekly_hr_list[week]
-        if week == 0:
-            start_wk_hr = 0
-        else:
-            start_wk_hr = weekly_hr_list[week-1]
         
-        week_range = range(start_wk_hr, end_wk_hr)
-        
-        a_multiset = collections.Counter(week_range)
-        b_multiset = collections.Counter(hour_list)
-    
-        overlap = list((b_multiset & a_multiset).elements())
-        if overlap:
-            json_filepath = os.path.join(solar_dir, "viz_grd_solar_week" + str(week) + ".json")
-            f = open(json_filepath, "r")
-            json_data = json.load(f)
-            for o in overlap:
-                hour_index2 = o - start_wk_hr
-                solars = json_data[hour_index2]["solar"]
-                solar_res_dict[o] = solars
-                f.close()
-    
-    return solar_res_dict
-        
-def retrieve_plot_data(hour, path_dict, parking_dict, projection):
+def retrieve_plot_data(hour, year, path_dict, parking_dict, projection):
     date = index2date(hour)
-    date_str = date.strftime("%Y-%m-%dT%H:%M:%S.000000Z")
+    date_str = date.strftime(str(year) + "-%m-%dT%H:%M:%S.000000Z")
+    
     total_dist = 0
-    if hour in path_dict.keys():
-        paths = path_dict[hour]
+    year_path_dict = path_dict[year]
+    if hour in year_path_dict.keys():
+        paths = year_path_dict[hour]
         for path in paths:
             dist = path["dist"]
             total_dist+=dist
         
-    
     total_park_time = 0
     solar_res_list = []
     total_solar_points = []
-    if hour in parking_dict.keys():    
-        parkings = parking_dict[hour]
+    year_parking_dict = parking_dict[year]
+    if hour in year_parking_dict.keys():    
+        parkings = year_parking_dict[hour]
         for parking in parkings:
             solar_res = parking["solar_results"]
             solar_res_list.extend(solar_res)
@@ -999,9 +1101,9 @@ def retrieve_plot_data(hour, path_dict, parking_dict, projection):
             'solar_min':solar_min, 'solar_min_pos': solar_min_pos, 'minz': minz, 
             'solar_med':solar_median, 'solar_med_pos': solar_med_pos, 'medz': medz} 
         
-def export_data(hour, path_dict, parking_dict, projection):
+def export_data(hour, year, path_dict, parking_dict, projection):
     
-    res_dict = retrieve_plot_data(hour, path_dict, parking_dict, projection)
+    res_dict = retrieve_plot_data(hour, year, path_dict, parking_dict, projection)
             
     strdata =   res_dict['date_str'] + "," + str(res_dict['total_dist']) + "," + str(res_dict['total_park_time']) + "," +\
                 str(res_dict['solar_max']) + "," + str(res_dict['solar_max_pos']) + "," + str(res_dict['maxz']) + "," +\

@@ -8,8 +8,9 @@ from pyqtgraph.Qt import QtGui, QtCore
 import sys
 
 from pyproj import Proj
-# import stg_function as stg_func
-import solar_travel_gui.stg_function as stg_func
+
+import stg_function as stg_func
+# import solar_travel_gui.stg_function as stg_func
 
 
 class ExportData(QtGui.QWidget):
@@ -18,9 +19,9 @@ class ExportData(QtGui.QWidget):
         self.setupGUI()
         
         arg_list = self.retrieve_arg()      
-        # arg_list = ['F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\p4d_process_travel.py', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\campus_as_a_lab\\data\\solar_travel_data\\parking', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\campus_as_a_lab\\data\\solar_travel_data\\travel']
+        # arg_list = ['F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\stg_export_data.py', 
+        #             'F:/kianwee_work/princeton/2020_01_to_2020_06/golfcart/model3d/solar_travel_data\\parking', 
+        #             'F:/kianwee_work/princeton/2020_01_to_2020_06/golfcart/model3d/solar_travel_data\\travel']
         
         self.arg_list = arg_list
         
@@ -29,13 +30,13 @@ class ExportData(QtGui.QWidget):
         
         self.export_range = dict(name='Export', type='group', expanded = True, title = "Export Data to CSV",
                                   children=[dict(name='Start Date', type = 'group', expanded = True, title = "Specify Start Date", 
-                                                 children = [dict(name='Year:', type= 'list', values= [2018, 2019], value=2019),
+                                                 children = [dict(name='Year:', type= 'list', values= [2019, 2020], value=2019),
                                                              dict(name='Month:', type= 'int', limits = (1,12), value = 9),
                                                              dict(name='Day:', type= 'int', limits = (1,31), value = 2),
                                                              dict(name='Hour:', type= 'int', limits = (0,23), value = 10)]),
                                             
                                             dict(name='End Date', type = 'group', expanded = True, title = "Specify End Date",
-                                                 children = [dict(name='Year:', type= 'list', values= [2018, 2019], value=2019),
+                                                 children = [dict(name='Year:', type= 'list', values= [2019, 2020], value=2020),
                                                              dict(name='Month:', type= 'int', limits = (1,12), value = 9),
                                                              dict(name='Day:', type= 'int', limits = (1,31), value = 2),
                                                              dict(name='Hour:', type= 'int', limits = (0,23), value = 18)]),
@@ -106,7 +107,7 @@ class ExportData(QtGui.QWidget):
         self.params.param('Export').param('Data Range Loaded').setValue(str_sp_date + " to " + str_e_date)
         
     def choose_filepath(self):
-        fn = pg.QtGui.QFileDialog.getOpenFileName(self, "Choose File Path", "")
+        fn = pg.QtGui.QFileDialog.getSaveFileName(self, "Choose File Path", "exported_data.csv", 'CSV (*.csv)')
         self.params.param('Export').param('Result File Chosen').setValue(str(fn[0]))
         self.result_filepath = str(fn[0])
         if fn == '':
@@ -122,40 +123,49 @@ class ExportData(QtGui.QWidget):
             self.params.param('Export').param('Progress').setValue(self.process_status)
             start_date =  parse(self.str_export_start_date)
             start_hour = stg_func.date2index(start_date)
+            start_year = start_date.year
             
             end_date = parse(self.str_export_end_date)
             end_hour = stg_func.date2index(end_date)
+            end_year = end_date.year
             
             res_filepath = self.result_filepath
             
             self.process_status = "Reading data ... "
             self.params.param('Export').param('Progress').setValue(self.process_status)
             
-            path_dict = stg_func.retrieve_travel_path_analysis(self.travel_dir, start_hour, end_hour)
-            parking_dict = stg_func.retrieve_parking_analysis(self.parking_dir, start_hour, end_hour)
-            hour_interest = range(start_hour, end_hour+1)
+            path_dict = stg_func.retrieve_travel_path_analysis(self.travel_dir, start_hour, start_year, end_hour, end_year)
+            parking_dict = stg_func.retrieve_parking_analysis(self.parking_dir, start_hour, start_year, end_hour, end_year)
             
             self.process_status = "Read all Dicitonaries ... "
             self.params.param('Export').param('Progress').setValue(self.process_status)
             
-            projection = Proj(proj='utm',zone=18,ellps='GRS80', preserve_units=False)
+            if start_year == end_year:
+                year_list = [start_year]
+            else:
+                year_list = range(start_year, end_year+1)
             
-            total_hours = len(hour_interest)
-            cnt = 0
+            projection = Proj(proj='utm',zone=18,ellps='GRS80', preserve_units=False)
+            nyear = len(year_list)
+            
             strx = "Date,DistanceTravelled(m),ParkingTime(hr),SolarMax(wh/m2),SolarMaxPos,SolarMaxZ(m),SolarMin(wh/m2),SolarMinPos,SolarMinZ(m),SolarMedian(wh/m2),SolarMedPos,SolarMedZ(m)\n"
-            for hour in hour_interest:
-                #===============================================================================================
-                #UPDATE GUI
-                #===============================================================================================
-                QtGui.QApplication.processEvents()
-                self.progress = (cnt/total_hours) * 100
-                self.process_status = "Processing Stops:" + str(cnt) + "/" + str(total_hours)
-                self.params.param('Export').param('Progress').setValue(self.process_status)
-                #===============================================================================================
-                #===============================================================================================
-                res_str = stg_func.export_data(hour, path_dict, parking_dict, projection)
-                strx += res_str
-                cnt+=1
+            
+            ycnt = 0
+            for year in year_list:
+                week_list, hour_interest = stg_func.gen_week_hour_interest_from_year_cnt(ycnt, nyear, start_hour, end_hour)
+                total_hours = len(hour_interest)
+                hcnt = 0
+                for hour in hour_interest:
+                    QtGui.QApplication.processEvents()
+                    self.progress = (hcnt/total_hours) * 100
+                    self.process_status = "Processing Stops:" + str(hcnt) + "/" + str(total_hours) + " year " + str(year) + "/" + str(list(year_list)[-1])
+                    self.params.param('Export').param('Progress').setValue(self.process_status)
+                    
+                    res_str = stg_func.export_data(hour, year, path_dict, parking_dict, projection)
+                    strx += res_str
+                
+                    hcnt+=1
+                ycnt+=1
             
             f = open(res_filepath, "w")
             f.write(strx)
@@ -184,5 +194,5 @@ if __name__ == '__main__':
     win = ExportData()
     win.setWindowTitle("Export the Data")
     win.show()
-    win.resize(500,480)
+    win.resize(800,800)
     win.start()

@@ -9,8 +9,8 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 from pyqtgraph.Qt import QtGui, QtCore
 import sys
 
-# import stg_function as stg_func
-import solar_travel_gui.stg_function as stg_func
+import stg_function as stg_func
+# import solar_travel_gui.stg_function as stg_func
 
 class ProcessParking(QtGui.QWidget):
     def __init__(self):
@@ -18,10 +18,10 @@ class ProcessParking(QtGui.QWidget):
         self.setupGUI()
         
         arg_list = self.retrieve_arg()      
-        # arg_list = ['F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\p4d_process_travel.py', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\golfcart\\model3d\\solar_travel_data\\parking', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\golfcart\\model3d\\solar_travel_data\\travel', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\golfcart\\model3d\\solar_travel_data\\ground_solar']
+        # arg_list = ['F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\stg_process_parking.py', 
+        #             'F:/kianwee_work/princeton/2020_01_to_2020_06/golfcart/model3d/solar_travel_data\\parking', 
+        #             'F:/kianwee_work/princeton/2020_01_to_2020_06/golfcart/model3d/solar_travel_data\\travel', 
+        #             'F:/kianwee_work/princeton/2020_01_to_2020_06/golfcart/model3d/solar_travel_data\\ground_solar']
         
         self.arg_list = arg_list
         
@@ -31,16 +31,16 @@ class ProcessParking(QtGui.QWidget):
         
         self.analyse_range = dict(name='Analysis', type='group', expanded = True, title = "Find Potential Parking Spots",
                                   children=[dict(name='Start Date', type = 'group', expanded = True, title = "Specify Start Date", 
-                                                 children = [dict(name='Year:', type= 'list', values= [2018, 2019], value=2019),
-                                                             dict(name='Month:', type= 'int', limits = (1,12), value = 9),
-                                                             dict(name='Day:', type= 'int', limits = (1,31), value = 2),
-                                                             dict(name='Hour:', type= 'int', limits = (0,23), value = 10)]),
+                                                 children = [dict(name='Year:', type= 'list', values= [2019,2020], value=2020),
+                                                             dict(name='Month:', type= 'int', limits = (1,12), value = 1),
+                                                             dict(name='Day:', type= 'int', limits = (1,31), value = 1),
+                                                             dict(name='Hour:', type= 'int', limits = (0,23), value = 0)]),
                                             
                                             dict(name='End Date', type = 'group', expanded = True, title = "Specify End Date",
-                                                 children = [dict(name='Year:', type= 'list', values= [2018, 2019], value=2019),
-                                                             dict(name='Month:', type= 'int', limits = (1,12), value = 9),
-                                                             dict(name='Day:', type= 'int', limits = (1,31), value = 2),
-                                                             dict(name='Hour:', type= 'int', limits = (0,23), value = 18)]),
+                                                 children = [dict(name='Year:', type= 'list', values= [2019,2020], value=2020),
+                                                             dict(name='Month:', type= 'int', limits = (1,12), value = 2),
+                                                             dict(name='Day:', type= 'int', limits = (1,31), value = 11),
+                                                             dict(name='Hour:', type= 'int', limits = (0,23), value = 23)]),
                                             
                                             dict(name='Data Range Loaded', type = 'str', readonly = True),
                                             dict(name='Load Data Range', type = 'action'),
@@ -108,97 +108,103 @@ class ProcessParking(QtGui.QWidget):
         self.params.param('Analysis').param('Data Range Loaded').setValue(str_sp_date + " to " + str_e_date)
         
     def find_parking(self):
-        try:
-            self.timer = pg.QtCore.QTimer()
-            self.timer.timeout.connect(self.update_bar)
-            self.timer.start(50)
+        # try:
+        self.timer = pg.QtCore.QTimer()
+        self.timer.timeout.connect(self.update_bar)
+        self.timer.start(50)
+        
+        time1 = time.perf_counter()
+        #===============================================================================================
+        #UPDATE GUI
+        #===============================================================================================
+        QtGui.QApplication.processEvents()
+        self.progress = 0
+        self.process_status = "Retrieving solar and travel data"
+        self.params.param('Analysis').param('Progress').setValue(self.process_status)
+        #===============================================================================================
+        #===============================================================================================
+        
+        #first get all the parameters from the gui
+        start_date = parse(self.str_analysis_start_date)
+        end_date = parse(self.str_analysis_end_date)
+        start_hour = stg_func.date2index(start_date)
+        end_hour = stg_func.date2index(end_date)
+        start_year = start_date.year
+        end_year = end_date.year
+
+        parking_radius = self.params.param('Analysis').param('Parking Radius').value()
+        parking_time = self.params.param('Analysis').param('Parking Time Threshold').value()
+        
+        solar_dir = self.solar_dir
+        travel_dir = self.travel_dir
+        parking_dir = self.parking_dir
+        
+        #then where are the parking spots according to the travel data
+        travel_dict = stg_func.retrieve_travel_ext_analysis(travel_dir, start_hour, start_year, end_hour, end_year)
+        stop_dict = stg_func.find_stops(travel_dict, stop_threshold = parking_time)
+        
+        solar_res_dict = stg_func.retrieve_solar4analysis(solar_dir, start_hour, start_year, end_hour, end_year)
+        solar_pts = stg_func.get_solar_pts(solar_dir)
+        #===============================================================================================
+        #UPDATE GUI
+        #===============================================================================================
+        QtGui.QApplication.processEvents()
+        self.progress = 0
+        self.params.param('Analysis').param('Progress').setValue("Starting stops analysis ... ...")
+        self.process_status = "Starting stops analysis"
+        #===============================================================================================
+        #===============================================================================================
+        year_list = stop_dict.keys()
+        
+        for year in year_list:
+            yearly_stop_dict = stop_dict[year]
+            yearly_solar_res_dict = solar_res_dict[year]
+            total_stops = len(yearly_stop_dict.items())
             
-            time1 = time.perf_counter()
-            #===============================================================================================
-            #UPDATE GUI
-            #===============================================================================================
-            QtGui.QApplication.processEvents()
-            self.progress = 0
-            self.params.param('Analysis').param('Progress').setValue("Retrieving solar and travel data ... ...")
-            self.process_status = "Retrieving solar and travel data"
-            #===============================================================================================
-            #===============================================================================================
-            #first get all the parameters from the gui
-            start_date = parse(self.str_analysis_start_date)
-            end_date = parse(self.str_analysis_end_date)
-            start_hour = stg_func.date2index(start_date)
-            end_hour = stg_func.date2index(end_date)
-    
-            parking_radius = self.params.param('Analysis').param('Parking Radius').value()
-            parking_time = self.params.param('Analysis').param('Parking Time Threshold').value()
-            
-            solar_dir = self.solar_dir
-            travel_dir = self.travel_dir
-            parking_dir = self.parking_dir
-            
-            #then where are the parking spots according to the travel data
-            travel_dict = stg_func.retrieve_travel_ext_analysis(travel_dir, start_hour, end_hour)
-            stop_dict = stg_func.find_stops(travel_dict, stop_threshold = parking_time)
-            
-            hours_interest = range(start_hour, end_hour+1)
-            week_list = stg_func.id_weeks(start_hour, end_hour)
-            
-            solar_res_dict = stg_func.retrieve_solar4analysis(hours_interest, week_list, solar_dir)
-            solar_pts = stg_func.get_solar_pts(solar_dir)
-            #===============================================================================================
-            #UPDATE GUI
-            #===============================================================================================
-            QtGui.QApplication.processEvents()
-            self.progress = 0
-            self.params.param('Analysis').param('Progress').setValue("Starting stops analysis ... ...")
-            self.process_status = "Starting stops analysis"
-            #===============================================================================================
-            #===============================================================================================
-                
-            total_stops = len(stop_dict.items())
             scnt = 0
-            for hour, stops in stop_dict.items():
+            for hour, stops in yearly_stop_dict.items():
                 #===============================================================================================
                 #UPDATE GUI
                 #===============================================================================================
                 QtGui.QApplication.processEvents()
                 self.progress = (scnt/total_stops) * 100
-                self.params.param('Analysis').param('Progress').setValue("Processing Stops:" + str(scnt) + "/" + str(total_stops))
-                self.process_status = "Processing Stops:" + str(scnt) + "/" + str(total_stops)
+                self.process_status = "Processing Stops:" + str(scnt) + "/" + str(total_stops) + " year " + str(year) + "/" + str(list(year_list)[-1])
+                self.params.param('Analysis').param('Progress').setValue(self.process_status)
+                
                 #===============================================================================================
                 #===============================================================================================
                 week_index = stg_func.id_week(hour)
                 #for each hour find the potential parking spot
-                result_dict = stg_func.find_parking4_the_hour(stops, solar_pts, hour, parking_radius, solar_res_dict)
+                result_dict = stg_func.find_parking4_the_hour(stops, solar_pts, hour, parking_radius, yearly_solar_res_dict)
                 #write the file for analysis
-                parking_filepath = os.path.join(parking_dir, "analysis", "parking_wk" + str(week_index) + ".json")
+                parking_filepath = os.path.join(parking_dir, "analysis", "parking_wk" + str(week_index) + "year" + str(year) + ".json")
                 stg_func.append2json(parking_filepath, result_dict[hour], hour)
                 
                 #generate the meshes for the visualisation results 
-                parking_viz_filepath = os.path.join(parking_dir,"viz",  "viz_parking_wk" + str(week_index) + ".json")
+                parking_viz_filepath = os.path.join(parking_dir,"viz",  "viz_parking_wk" + str(week_index) + "year" + str(year) + ".json")
                 mesh_dict = stg_func.gen_parking_mesh(result_dict, hour)
                 stg_func.append2json(parking_viz_filepath, mesh_dict, hour)
                 
                 scnt+=1
+        
+        #write to source file
+        source_path = os.path.join(parking_dir, "source.json")
+        s_f = open(source_path, "w")
+        json.dump({"dates":[self.str_analysis_start_date, self.str_analysis_end_date]}, s_f)
+        s_f.close()
+        
+        time2 = time.perf_counter()
+        total_time = (time2-time1)/60
+        time_str = "SUCCESSFULLY COMPLETE PROCESSING, Total Processing Time: " + str(round(total_time,2)) + " mins"
+        
+        QtGui.QApplication.processEvents()
+        self.progress = 100
+        self.update_bar()
+        self.params.param('Analysis').param('Progress').setValue(time_str)
+        self.timer.stop()
             
-            #write to source file
-            source_path = os.path.join(parking_dir, "source.json")
-            s_f = open(source_path, "w")
-            json.dump({"dates":[self.str_analysis_start_date, self.str_analysis_end_date]}, s_f)
-            s_f.close()
-            
-            time2 = time.perf_counter()
-            total_time = (time2-time1)/60
-            time_str = "SUCCESSFULLY COMPLETE PROCESSING, Total Processing Time: " + str(round(total_time,2)) + " mins"
-            
-            QtGui.QApplication.processEvents()
-            self.progress = 100
-            self.update_bar()
-            self.params.param('Analysis').param('Progress').setValue(time_str)
-            self.timer.stop()
-            
-        except:
-            self.params.param('Analysis').param('Progress').setValue("ERROR ... Last known status:" + self.process_status)
+        # except:
+        #     self.params.param('Analysis').param('Progress').setValue("ERROR ... Last known status:" + self.process_status)
         
     def clear_parking(self):
         parking_dir = self.parking_dir
@@ -225,5 +231,5 @@ if __name__ == '__main__':
     win = ProcessParking()
     win.setWindowTitle("Processing the Parking Data")
     win.show()
-    win.resize(500,480)
+    win.resize(800,800)
     win.start()

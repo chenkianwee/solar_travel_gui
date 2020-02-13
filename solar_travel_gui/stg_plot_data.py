@@ -1,4 +1,6 @@
 from dateutil.parser import parse
+from datetime import datetime
+from dateutil.tz import gettz
 
 import PyQt5
 import pyqtgraph as pg
@@ -7,12 +9,13 @@ from pyqtgraph.Qt import QtGui, QtCore
 import sys
 
 from pyproj import Proj
-# import stg_function as stg_func
-import solar_travel_gui.stg_function as stg_func
+
+import stg_function as stg_func
+# import solar_travel_gui.stg_function as stg_func
 
 
-def hourindex2dt(hour_index):
-    return(stg_func.index2date(hour_index))
+def hourindex2dt(timestamp):
+    return(datetime.fromtimestamp(timestamp))
 
 class TimeAxisItem(pg.AxisItem):
     def __init__(self, *args, **kwargs):
@@ -21,7 +24,7 @@ class TimeAxisItem(pg.AxisItem):
     def tickStrings(self, values, scale, spacing):
         # PySide's QTime() initialiser fails miserably and dismisses args/kwargs
         #return [QTime().addMSecs(value).toString('mm:ss') for value in values]
-        return [hourindex2dt(value).strftime("%Y-%m-%d %H:0:0") for value in values]
+        return [hourindex2dt(value).strftime("%y-%m-%d %H00") for value in values]
     
 class PlotData(QtGui.QWidget):
     def __init__(self):
@@ -29,10 +32,12 @@ class PlotData(QtGui.QWidget):
         self.setupGUI()
         
         arg_list = self.retrieve_arg()      
-        # arg_list = ['F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\p4d_process_travel.py', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\campus_as_a_lab\\data\\solar_travel_data\\parking', 
-        #             'F:\\kianwee_work\\princeton\\2019_06_to_2019_12\\campus_as_a_lab\\data\\solar_travel_data\\travel']
-        
+
+        # arg_list = [ 'F:\\kianwee_work\\spyder_workspace\\solar_travel_gui\\solar_travel_gui\\stg_plot_data.py', 
+        #             'F:/kianwee_work/princeton/2020_01_to_2020_06/golfcart/model3d/solar_travel_data\\parking', 
+        #             'F:/kianwee_work/princeton/2020_01_to_2020_06/golfcart/model3d/solar_travel_data\\travel']
+                    
+
         self.arg_list = arg_list
         
         self.parking_dir = arg_list[1]
@@ -41,15 +46,15 @@ class PlotData(QtGui.QWidget):
         self.val_list = dlist_values
         self.plot_range = dict(name='Plot', type='group', expanded = True, title = "Plot Data",
                                   children=[dict(name='Start Date', type = 'group', expanded = True, title = "Specify Start Date", 
-                                                 children = [dict(name='Year:', type= 'list', values= [2018, 2019], value=2019),
-                                                             dict(name='Month:', type= 'int', limits = (1,12), value = 9),
-                                                             dict(name='Day:', type= 'int', limits = (1,31), value = 2),
+                                                 children = [dict(name='Year:', type= 'list', values= [2019, 2020], value=2020),
+                                                             dict(name='Month:', type= 'int', limits = (1,12), value = 2),
+                                                             dict(name='Day:', type= 'int', limits = (1,31), value = 5),
                                                              dict(name='Hour:', type= 'int', limits = (0,23), value = 10)]),
                                             
                                             dict(name='End Date', type = 'group', expanded = True, title = "Specify End Date",
-                                                 children = [dict(name='Year:', type= 'list', values= [2018, 2019], value=2019),
-                                                             dict(name='Month:', type= 'int', limits = (1,12), value = 9),
-                                                             dict(name='Day:', type= 'int', limits = (1,31), value = 2),
+                                                 children = [dict(name='Year:', type= 'list', values= [2019, 2020], value=2020),
+                                                             dict(name='Month:', type= 'int', limits = (1,12), value = 2),
+                                                             dict(name='Day:', type= 'int', limits = (1,31), value = 5),
                                                              dict(name='Hour:', type= 'int', limits = (0,23), value = 18)]),
                                             
                                             dict(name='Data Range Loaded', type = 'str', readonly = True),
@@ -77,10 +82,7 @@ class PlotData(QtGui.QWidget):
         self.layout.addWidget(self.splitter)
         
         self.tree = ParameterTree(showHeader=False)
-        self.progress_bar = QtGui.QProgressBar(self)
-        self.progress_bar.setGeometry(200, 80, 250, 20)
         self.splitter.addWidget(self.tree)
-        self.layout.addWidget(self.progress_bar)
         
         self.pw = pg.PlotWidget(axisItems = {'bottom':TimeAxisItem(orientation='bottom')})
         self.splitter.addWidget(self.pw)
@@ -111,10 +113,6 @@ class PlotData(QtGui.QWidget):
         self.curve2 = pg.PlotCurveItem(pen='r')
         p2.addItem(self.curve2)
         self.plotitem = p1
-        
-    def update_bar(self):
-        progress_value = self.progress
-        self.progress_bar.setValue(progress_value)
         
     def retrieve_arg(self):
         arg_list = sys.argv
@@ -149,15 +147,14 @@ class PlotData(QtGui.QWidget):
     def plot_data(self):
         start_date =  parse(self.str_plot_start_date)
         start_hour = stg_func.date2index(start_date)
+        start_year = start_date.year
         
         end_date = parse(self.str_plot_end_date)
         end_hour = stg_func.date2index(end_date)
+        end_year = end_date.year
         
-        path_dict = stg_func.retrieve_travel_path_analysis(self.travel_dir, start_hour, end_hour)
-        parking_dict = stg_func.retrieve_parking_analysis(self.parking_dir, start_hour, end_hour)
-        
-        hour_interest = range(start_hour, end_hour+1)
-        projection = Proj(proj='utm',zone=18,ellps='GRS80', preserve_units=False)
+        path_dict = stg_func.retrieve_travel_path_analysis(self.travel_dir, start_hour, start_year, end_hour, end_year)
+        parking_dict = stg_func.retrieve_parking_analysis(self.parking_dir, start_hour, start_year, end_hour, end_year)
         
         y1 = self.params.param('Plot').param('Y-axis1:').value()
         y2 = self.params.param('Plot').param('Y-axis2:').value()
@@ -172,15 +169,33 @@ class PlotData(QtGui.QWidget):
         y1_list = []
         y2_list = []
         hlist = []
-        for hour in hour_interest:
-            res_dict = stg_func.retrieve_plot_data(hour, path_dict, parking_dict, projection)
-            y1_list.append(res_dict[key1])
-            y2_list.append(res_dict[key2])
-            hlist.append(hour)
+        
+        if start_year == end_year:
+            year_list = [start_year]
+        else:
+            year_list = range(start_year, end_year+1)
+        
+        projection = Proj(proj='utm',zone=18,ellps='GRS80', preserve_units=False)
+        timezone = gettz()
+        nyear = len(year_list)
+        ycnt = 0
+        for year in year_list:
+            week_list, hour_interest = stg_func.gen_week_hour_interest_from_year_cnt(ycnt, nyear, start_hour, end_hour)
+            for hour in hour_interest:
+                res_dict = stg_func.retrieve_plot_data(hour, year, path_dict, parking_dict, projection)
+                y1_list.append(res_dict[key1])
+                y2_list.append(res_dict[key2])
+                date_str = res_dict["date_str"]
+                date = parse(date_str)
+                date = date.replace(tzinfo=timezone)
+                timestamp = datetime.timestamp(date)
+                hlist.append(timestamp)
+            ycnt+=1
                 
         self.plot.setLabel("left", y1)
         self.plot.getAxis('right').setLabel(y2, color='RED')
         
+        print(len(hlist), len(y1_list))
         self.curve1.setData(x = hlist, y = y1_list)
         self.curve2.setData(x = hlist, y = y2_list)
         

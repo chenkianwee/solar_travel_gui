@@ -9,8 +9,8 @@ import pyqtgraph.opengl as gl
 from pyqtgraph.Qt import QtGui, QtCore
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-# import stg_function as stg_func
-import solar_travel_gui.stg_function as stg_func
+import stg_function as stg_func
+# import solar_travel_gui.stg_function as stg_func
 
 class AnimationVisualiser(QtGui.QWidget):
     def __init__(self):
@@ -129,7 +129,7 @@ class AnimationVisualiser(QtGui.QWidget):
                 
             self.terrain_meshes = terrains_mesh_list
         #========================================================================
-        #laod the 3d buildings
+        #load the 3d buildings
         #========================================================================
         if "buildings" in arg_list:
             facade_mesh_json = os.path.join(self.mesh_dir, "facade.json")
@@ -222,28 +222,27 @@ class AnimationVisualiser(QtGui.QWidget):
         return arg_list
         
     def update(self):        
-        cur_index = self.current_index
         cur_date = self.current_date
         rewind_status = self.rewind_status
         
         if rewind_status == True:
-            nxt_index = cur_index - 1
             nxt_date = cur_date - timedelta(hours=1)
+            nxt_index = stg_func.date2index(nxt_date)
 #            self.params.param('Date Range').param('Play Status').setValue(str(nxt_index) + "nxt " + str(self.start_index)+ "start end" + str(self.end_index))
-            if nxt_index < self.start_index:
+            if nxt_date < self.start_date:
                 nxt_index = self.end_index
                 nxt_date = self.end_date
                 
         else:
-            nxt_index = cur_index + 1
             nxt_date = cur_date + timedelta(hours=1)
+            nxt_index = stg_func.date2index(nxt_date)
 #            self.params.param('Date Range').param('Play Status').setValue(str(nxt_index) + "nxt " + str(self.start_index)+ "start end" + str(self.end_index))
-            if nxt_index > self.end_index:
+            if nxt_date > self.end_date:
                 nxt_index = self.start_index
                 nxt_date = self.start_date
              
         str_date = nxt_date.strftime("%Y-%m-%d %H:%M:%S")
-        
+        year = nxt_date.year
         self.current_index = nxt_index
         self.current_date = nxt_date
         self.params.param('Date Range').param('Current Date').setValue(str_date)
@@ -266,7 +265,7 @@ class AnimationVisualiser(QtGui.QWidget):
             extrude_lines = self.extrude_lines 
             
             travel_dir = self.travel_dir
-            mesh_vis, bdry_vis, path_vis = stg_func.retrieve_travel_data(nxt_index, travel_dir, extrude_meshes, extrude_lines, path_lines, self.view3d)
+            mesh_vis, bdry_vis, path_vis = stg_func.retrieve_travel_data(nxt_index, year, travel_dir, extrude_meshes, extrude_lines, path_lines, self.view3d)
             
             if mesh_vis !=None:
                 stg_func.viz_graphic_items([mesh_vis], self.view3d)
@@ -285,7 +284,7 @@ class AnimationVisualiser(QtGui.QWidget):
         if "parkings" in self.arg_list:
             parking_meshes = self.parking_meshes
             parking_dir = self.parking_dir
-            parking_mesh = stg_func.retrieve_parking_data(nxt_index, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
+            parking_mesh = stg_func.retrieve_parking_data(nxt_index, year, parking_dir, parking_meshes, self.view3d, self.min_val, self.max_val)
             if parking_mesh != None:
                 stg_func.viz_graphic_items([parking_mesh], self.view3d)
             
