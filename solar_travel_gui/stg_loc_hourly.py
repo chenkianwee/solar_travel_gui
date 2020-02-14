@@ -10,8 +10,8 @@ import shapefile
 from pyproj import Proj
 from py4design import py3dmodel
 
-import stg_function as stg_func
-# import solar_travel_gui.stg_function as stg_func
+# import stg_function as stg_func
+import solar_travel_gui.stg_function as stg_func
 
 #========================================================================
 #functions

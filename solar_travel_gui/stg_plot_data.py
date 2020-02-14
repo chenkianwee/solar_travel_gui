@@ -10,8 +10,8 @@ import sys
 
 from pyproj import Proj
 
-import stg_function as stg_func
-# import solar_travel_gui.stg_function as stg_func
+# import stg_function as stg_func
+import solar_travel_gui.stg_function as stg_func
 
 
 def hourindex2dt(timestamp):

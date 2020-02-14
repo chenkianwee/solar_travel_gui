@@ -11,8 +11,8 @@ import pyqtgraph.opengl as gl
 from pyqtgraph.Qt import QtGui, QtCore
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-import stg_function as stg_func
-# import solar_travel_gui.stg_function as stg_func
+# import stg_function as stg_func
+import solar_travel_gui.stg_function as stg_func
 
 class Dashboard(QtGui.QWidget):
     def __init__(self):
