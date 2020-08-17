@@ -9,8 +9,8 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 from pyqtgraph.Qt import QtGui, QtCore
 import sys
 
-# import stg_function as stg_func
-import solar_travel_gui.stg_function as stg_func
+import stg_function as stg_func
+# import solar_travel_gui.stg_function as stg_func
 
 class ProcessParking(QtGui.QWidget):
     def __init__(self):

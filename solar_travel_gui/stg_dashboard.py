@@ -11,8 +11,8 @@ import pyqtgraph.opengl as gl
 from pyqtgraph.Qt import QtGui, QtCore
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-# import stg_function as stg_func
-import solar_travel_gui.stg_function as stg_func
+import stg_function as stg_func
+# import solar_travel_gui.stg_function as stg_func
 
 class Dashboard(QtGui.QWidget):
     def __init__(self):
@@ -32,26 +32,31 @@ class Dashboard(QtGui.QWidget):
         self.params.param('Layers').param("Load 3D Model").sigActivated.connect(self.load_3dmodel)
         
     def setupGUI(self):
+        #create the main layout canvas
         self.layout = QtGui.QVBoxLayout()
         self.layout.setContentsMargins(0,0,0,0)
         self.setLayout(self.layout)
         
+        #create the first left panel
         self.splitter = QtGui.QSplitter()
         self.splitter.setOrientation(QtCore.Qt.Horizontal)
-        
+        #create the parameter tree for housing the parameters
         self.tree = ParameterTree(showHeader=False)
         self.splitter.addWidget(self.tree)
-
+        
+        #create the right panel
         self.splitter2 = QtGui.QSplitter()
         self.splitter2.setOrientation(QtCore.Qt.Horizontal)
-        
-        self.tree2 = ParameterTree(showHeader=True)
+        #put the left panel into the splitter2
         self.splitter2.addWidget(self.splitter)
+        #create the parameter tree for housing the parameters
+        self.tree2 = ParameterTree(showHeader=True)
         self.splitter2.addWidget(self.tree2)
         self.splitter2.setStretchFactor(0, 3)
-        
+        #put the splitter 2 into the layout
         self.layout.addWidget(self.splitter2)
         
+        #create the 3dview and put it into splitter1
         self.view3d = gl.GLViewWidget()
         self.splitter.addWidget(self.view3d)
         

@@ -10,11 +10,11 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 from pyqtgraph.Qt import QtGui, QtCore
 import sys
 
-# import stg_loc_hourly as stg_loc
-# import stg_function as stg_func
+import stg_loc_hourly as stg_loc
+import stg_function as stg_func
 
-import solar_travel_gui.stg_loc_hourly as stg_loc
-import solar_travel_gui.stg_function as stg_func
+# import solar_travel_gui.stg_loc_hourly as stg_loc
+# import solar_travel_gui.stg_function as stg_func
 
 class ProcessTravel(QtGui.QWidget):
     def __init__(self):
@@ -178,6 +178,7 @@ class ProcessTravel(QtGui.QWidget):
                     QtGui.QApplication.processEvents()
                     self.progress = (progress_cnt/ndates)*100
                     self.process_status = "Processing locations: " + str(hcnt) + "/8760 Year " + str(year) + "/" + str(list(year_list)[-1])
+                    print(self.process_status)
                     self.params.param('Progress').setValue(self.process_status)
                     # if 5832<= hcnt <= 5838:
                     print("HCNT", hcnt)

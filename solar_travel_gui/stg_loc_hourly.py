@@ -10,8 +10,8 @@ import shapefile
 from pyproj import Proj
 from py4design import py3dmodel
 
-# import stg_function as stg_func
-import solar_travel_gui.stg_function as stg_func
+import stg_function as stg_func
+# import solar_travel_gui.stg_function as stg_func
 
 #========================================================================
 #functions
@@ -264,50 +264,90 @@ def read_process_loc_json(location_filepath, date_range = None):
     #=====================================================================
     #CHANGE THE JSON DATA HERE WHEN CODING
     #=====================================================================
-    json_data = json.load(location_f)["locations"]
-    #json_data = json_data[1100:1200]
-    location_f.close()
-
+    json_data = json.load(location_f)
     #set up the projection
     p = Proj(proj='utm',zone=18,ellps='GRS80', preserve_units=False)
     
-    #process the location points 
-    print("***************** Processing location points*****************")
     year_data_dict = {}
     date_str_list = []
     loc_pyptlist = []
     
-    loc_list = []
-    for loc in json_data:
-        act_dict_list = unpack_activity(loc, p)
-        loc_list.extend(act_dict_list)
-
-    cnt = 0
-    for loc in loc_list:
-        date = loc["date"]
-        if date_range[0] <= date <= date_range[1]:
+    keys = json_data.keys()
+    if "locations" in keys:
+        #this shld be a google map file
+        json_data = json_data["locations"]
+        
+        #process the location points 
+        print("***************** Processing location points*****************")
+        
+        
+        loc_list = []
+        for loc in json_data:
+            act_dict_list = unpack_activity(loc, p)
+            loc_list.extend(act_dict_list)
+    
+        cnt = 0
+        for loc in loc_list:
+            date = loc["date"]
+            if date_range[0] <= date <= date_range[1]:
+                hour_index = stg_func.date2index(date)
+                hour_date_str = date.strftime("%Y-%m-%d %H:0:0")
+                year = date.year
+                year_list = list(year_data_dict.keys())
+                if year not in year_list:
+                    hourly_list = []
+                    for _ in range(8760):
+                        hourly_list.append({"locations":[]})
+                    
+                    year_data_dict[year] = hourly_list
+                    
+                if hour_date_str not in date_str_list:
+                    date_str_list.append(hour_date_str)
+        
+                date_str = date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                pypt = loc["pypt"]
+                loc["date"] = date_str
+                loc_pyptlist.append(pypt)
+                year_data_dict[year][hour_index]["locations"].append(loc)
+                # print(cnt, "/", len(loc_list))
+            cnt+=1
+    
+    if "data" in keys:
+        #this shld be a strava file
+        data = json_data['data'][0]
+        # fields = data['fields']
+        values = data['values']
+        #write the heading first 
+        
+        for cnt,v in enumerate(values):
+            timestamp = int(v[0])
+            date = datetime.datetime.fromtimestamp(timestamp)
+            date_str = date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             hour_index = stg_func.date2index(date)
-            hour_date_str = date.strftime("%Y-%m-%d %H:0:0")
             year = date.year
             year_list = list(year_data_dict.keys())
+            
             if year not in year_list:
                 hourly_list = []
                 for _ in range(8760):
                     hourly_list.append({"locations":[]})
                 
                 year_data_dict[year] = hourly_list
-                
+            
+            hour_date_str = date.strftime("%Y-%m-%d %H:0:0")
             if hour_date_str not in date_str_list:
                 date_str_list.append(hour_date_str)
-    
-            date_str = date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            pypt = loc["pypt"]
-            loc["date"] = date_str
+            
+            lat = v[1][0]
+            lng = v[1][1]
+            x,y = p(lng, lat)
+            pypt = [x,y,0]
+            
             loc_pyptlist.append(pypt)
-            year_data_dict[year][hour_index]["locations"].append(loc)
-            # print(cnt, "/", len(loc_list))
-        cnt+=1
+            loc = {"date":date_str, "pypt": pypt, "lat": lat, "lon": lng}
+            year_data_dict[year][hour_index]["locations"].append(loc)        
     
+    location_f.close()
     return year_data_dict, loc_pyptlist, date_str_list
 
 def unpack_activity(loc_dict, p):
@@ -489,39 +529,44 @@ def process_hourly_loc(hour_index, year, locd, id_terrain_list, gdict_list, path
     path_att_name_list = ["hour_index", "dist"]
     write_polyline_shpfile(path_wire_list, path_shp_filepath, path_att_name_list, path_att_2dlist)
     print("***************** Wrote week" + str(week_index) + " hour " + str(hour_index) + " *****************")
+
+'''
+if __name__ == '__main__':
+    #========================================================================
+    #filepaths
+    #========================================================================
+    location_filepath = "F:\\kianwee_work\\princeton\\2020_01_to_2020_06\\golfcart\\location\\json\\Testing_Golf_Cart_4people_2_19.json"
+    terrain_filepath = "F:\\kianwee_work\\princeton\\2020_01_to_2020_06\\golfcart\\model3d\\solar_travel_data\\context3d\\terrain.brep"
+    travel_dir = "F:\\kianwee_work\\princeton\\2020_01_to_2020_06\\golfcart\\model3d\\solar_travel_data\\travel"
     
-# if __name__ == '__main__':
-#     #========================================================================
-#     #filepaths
-#     #========================================================================
-#     location_filepath = "F:\\kianwee_work\\princeton\\2020_01_to_2020_06\\golfcart\\location\\json\\LocationHistory2020Feb.json"
-#     terrain_filepath = "F:\\kianwee_work\\princeton\\2020_01_to_2020_06\\golfcart\\model3d\\solar_travel_data\\context3d\\terrain.brep"
-#     travel_dir = "F:\\kianwee_work\\princeton\\2020_01_to_2020_06\\golfcart\\model3d\\solar_travel_data\\travel"
+    timezone = gettz()            
+    start_date = parse("2020-02-05T0:0:0")
+    start_date = start_date.replace(tzinfo=timezone)
     
-#     timezone = gettz()            
-#     start_date = parse("2020-02-05T0:0:0")
-#     start_date = start_date.replace(tzinfo=timezone)
+    end_date = parse("2020-02-08T23:0:0")
+    end_date = end_date.replace(tzinfo=timezone)
     
-#     end_date = parse("2020-02-08T23:0:0")
-#     end_date = end_date.replace(tzinfo=timezone)
+    date_range = []
+    # year_dict, loc_pyptlist, date_str_list = read_process_loc_json(location_filepath, date_range = [start_date, end_date])
+    year_dict, loc_pyptlist, date_str_list = read_process_loc_json(location_filepath)
     
-#     date_range = []
-#     year_dict, loc_pyptlist, date_str_list = read_process_loc_json(location_filepath, date_range = [start_date, end_date])
-#     id_terrain_list = id_terrains_with_loc_pts(terrain_filepath, loc_pyptlist)
+
+    id_terrain_list = id_terrains_with_loc_pts(terrain_filepath, loc_pyptlist)
     
-#     path_att_2dlist = []
-#     path_wire_list = []    
-#     gdict_list = []
-#     ndates = len(date_str_list)
+    path_att_2dlist = []
+    path_wire_list = []    
+    gdict_list = []
+    ndates = len(date_str_list)
     
-#     year_list = year_dict.keys()
-#     for year in year_list:
-#         hourly_list = year_dict[year]
-#         hcnt = 0
-#         for locd in hourly_list:
-#             locs_list = locd["locations"]
-#             if locs_list:
-#                 print("HCNT", hcnt)
-#                 # print(locd)
-#                 process_hourly_loc(hcnt, year, locd, id_terrain_list, gdict_list, path_wire_list, path_att_2dlist, travel_dir)
-#             hcnt+=1
+    year_list = year_dict.keys()
+    for year in year_list:
+        hourly_list = year_dict[year]
+        hcnt = 0
+        for locd in hourly_list:
+            locs_list = locd["locations"]
+            if locs_list:
+                print("HCNT", hcnt)
+                # print(locd)
+                process_hourly_loc(hcnt, year, locd, id_terrain_list, gdict_list, path_wire_list, path_att_2dlist, travel_dir)
+            hcnt+=1
+'''
